@@ -207,7 +207,7 @@ document.getElementById('uiGrid').innerHTML = uiProjects.map((p, i) => `
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* about pinned phrase morph */
-const phrases = ['I create…', 'Graphic Design', 'Brand Identity', 'Packaging', 'UI Design', 'UX Design', 'Digital Experiences'];
+const phrases = ['I like design with a point of view.', 'Whether it’s a brand identity', 'campaign or social post', ' I’m interested in making every visual choice feel intentional', 'distinctive and very much its own'];
 const morphStage = document.getElementById('morphStage'), morphProg = document.getElementById('morphProg');
 morphStage.innerHTML = phrases.map((p, i) => `<div class="morph${i === 0 ? ' on' : ''}" data-m="${i}">${i === phrases.length - 1 ? `<span class="acc-word">${p}</span>` : p}</div>`).join('');
 morphProg.innerHTML = phrases.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('');
