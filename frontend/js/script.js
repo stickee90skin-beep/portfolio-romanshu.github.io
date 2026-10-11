@@ -227,12 +227,12 @@ function setPhrase(n) {
 
 /* skills pinned words */
 const skillWords = [
-  { w: 'Branding', anim: 'from-left' },
-  { w: 'Packaging', anim: 'from-right' },
-  { w: 'UI Design', anim: 'blur-in' },
-  { w: 'UX Research', anim: 'chars' },
-  { w: 'Motion', anim: 'scale-in' },
-  { w: 'Systems', anim: 'from-left', u: true }
+  { w: 'Editing', anim: 'from-left' },
+  { w: 'Storytelling', anim: 'from-right' },
+  { w: 'Design Systems', anim: 'blur-in' },
+  { w: 'AI Visuals', anim: 'chars' },
+  { w: 'Visual Design', anim: 'scale-in' },
+  { w: 'Creative Direction', anim: 'from-left', u: true }
 ];
 const wordsStage = document.getElementById('wordsStage');
 wordsStage.innerHTML = skillWords.map((s, i) => {
