@@ -56,7 +56,7 @@ async function saveMailState() {
     await writeFile(temporaryPath, snapshot, 'utf-8');
     await rename(temporaryPath, MAIL_STATE_PATH);
   });
-  saveQueue = write.catch(() => {});
+  saveQueue = write.catch(() => { });
   await write;
 }
 

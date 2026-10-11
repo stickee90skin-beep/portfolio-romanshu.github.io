@@ -20,7 +20,13 @@
       "textLight": "#aaa"
     }
   },
-  "requiredFields": ["name", "email", "service", "budget", "timeline", "message"],
+  "requiredFields": [
+    "name",
+    "email",
+    "service",
+    "budget",
+    "timeline",
+    "message"
+  ],
   "optionalFields": ["company", "phone", "country"]
 }
-
