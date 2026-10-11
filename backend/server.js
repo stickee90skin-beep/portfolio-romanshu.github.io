@@ -1,6 +1,7 @@
 const { createServer } = require('node:http');
-const { readFile, writeFile } = require('node:fs/promises');
-const { extname, isAbsolute, join, relative, resolve, sep } = require('node:path');
+const { mkdir, rename, writeFile } = require('node:fs/promises');
+const { randomUUID } = require('node:crypto');
+const { dirname, extname, isAbsolute, join, relative, resolve, sep } = require('node:path');
 const nodemailer = require('nodemailer');
 
 const siteRoot = resolve(__dirname, '..');
@@ -39,12 +40,24 @@ const transporter = nodemailer.createTransport({
 let mailState;
 try {
   mailState = JSON.parse(require('node:fs').readFileSync(MAIL_STATE_PATH, 'utf-8'));
-} catch {
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
   mailState = { inquiries: [], stats: { totalSent: 0, lastSentAt: null } };
 }
 
+let saveQueue = Promise.resolve();
+let saveSequence = 0;
+
 async function saveMailState() {
-  await writeFile(MAIL_STATE_PATH, JSON.stringify(mailState, null, 2), 'utf-8');
+  const snapshot = JSON.stringify(mailState, null, 2);
+  const temporaryPath = `${MAIL_STATE_PATH}.${process.pid}.${++saveSequence}.tmp`;
+  const write = saveQueue.then(async () => {
+    await mkdir(dirname(MAIL_STATE_PATH), { recursive: true });
+    await writeFile(temporaryPath, snapshot, 'utf-8');
+    await rename(temporaryPath, MAIL_STATE_PATH);
+  });
+  saveQueue = write.catch(() => {});
+  await write;
 }
 
 /* ================= Helpers ================= */
@@ -102,11 +115,30 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      // Check email config
+      const now = new Date().toISOString();
+      const entry = {
+        ...body,
+        id: `inq_${Date.now()}_${randomUUID()}`,
+        sentAt: now,
+        emailStatus: 'pending'
+      };
+      mailState.inquiries.push(entry);
+      await saveMailState();
+
+      const savedResponse = () => {
+        response.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders() });
+        response.end(JSON.stringify({
+          success: true,
+          message: 'Inquiry saved, but the email notification could not be sent.',
+          emailSent: false
+        }));
+      };
+
       if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
-        console.error('Email not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
-        response.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders() });
-        response.end(JSON.stringify({ success: false, error: 'Email service is not configured on the server.' }));
+        entry.emailStatus = 'failed';
+        await saveMailState();
+        console.error('Email not configured. Set the GMAIL_APP_PASSWORD environment variable.');
+        savedResponse();
         return;
       }
 
@@ -147,18 +179,17 @@ const server = createServer(async (request, response) => {
         `
       };
 
-      // Send the email
-      await transporter.sendMail(mailOptions);
+      try {
+        await transporter.sendMail(mailOptions);
+      } catch (error) {
+        entry.emailStatus = 'failed';
+        await saveMailState();
+        console.error('Failed to send inquiry email:', error);
+        savedResponse();
+        return;
+      }
 
-      // Save inquiry to state/mail.json
-      const now = new Date().toISOString();
-      const entry = {
-        id: `inq_${Date.now()}`,
-        ...body,
-        sentAt: now,
-        emailStatus: 'sent'
-      };
-      mailState.inquiries.push(entry);
+      entry.emailStatus = 'sent';
       mailState.stats.totalSent += 1;
       mailState.stats.lastSentAt = now;
       await saveMailState();

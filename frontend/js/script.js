@@ -507,7 +507,9 @@ async function sendInquiry(e) {
     const result = await res.json();
 
     if (res.ok && result.success) {
-      toast('✅ Inquiry sent successfully! We\'ll get back to you soon.');
+      toast(result.emailSent === false
+        ? '✅ Your inquiry was saved, but the email notification could not be sent.'
+        : '✅ Inquiry sent successfully! We\'ll get back to you soon.');
       form.reset();
     } else {
       toast('❌ ' + (result.error || 'Something went wrong. Please try again.'));

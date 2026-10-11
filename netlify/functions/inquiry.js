@@ -1,4 +1,6 @@
 const nodemailer = require('nodemailer');
+const { randomUUID } = require('node:crypto');
+const { connectLambda, getStore } = require('@netlify/blobs');
 
 const requiredFields = ['name', 'email', 'service', 'budget', 'timeline', 'message'];
 const headers = {
@@ -22,14 +24,6 @@ exports.handler = async event => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
   if (event.httpMethod !== 'POST') return reply(405, { success: false, error: 'Method not allowed.' });
 
-  const user = process.env.GMAIL_USER;
-  const password = process.env.GMAIL_APP_PASSWORD;
-  const receiver = process.env.RECEIVER_EMAIL || user;
-  if (!user || !password || !receiver) {
-    console.error('Missing email environment variables.');
-    return reply(500, { success: false, error: 'Email service is not configured on the server.' });
-  }
-
   let body;
   try { body = JSON.parse(event.body || '{}'); }
   catch { return reply(400, { success: false, error: 'Invalid JSON.' }); }
@@ -39,6 +33,46 @@ exports.handler = async event => {
   );
   if (missing.length) {
     return reply(400, { success: false, error: `Missing required fields: ${missing.join(', ')}` });
+  }
+
+  const now = new Date().toISOString();
+  const inquiry = {
+    ...body,
+    id: `inq_${Date.now()}_${randomUUID()}`,
+    sentAt: now,
+    emailStatus: 'pending'
+  };
+  connectLambda(event);
+  const store = getStore('inquiries');
+  const key = `inquiry-${inquiry.id}`;
+
+  try {
+    await store.setJSON(key, inquiry);
+  } catch (error) {
+    console.error('Failed to save inquiry:', error);
+    return reply(500, { success: false, error: 'Failed to save inquiry. Please try again later.' });
+  }
+
+  const user = process.env.GMAIL_USER;
+  const password = process.env.GMAIL_APP_PASSWORD;
+  const receiver = process.env.RECEIVER_EMAIL || user;
+  const acknowledgeSaved = async () => {
+    inquiry.emailStatus = 'failed';
+    try {
+      await store.setJSON(key, inquiry);
+    } catch (error) {
+      console.error('Failed to update saved inquiry status:', error);
+    }
+    return reply(202, {
+      success: true,
+      message: 'Inquiry saved, but the email notification could not be sent.',
+      emailSent: false
+    });
+  };
+
+  if (!user || !password || !receiver) {
+    console.error('Missing email environment variables.');
+    return acknowledgeSaved();
   }
 
   const transporter = nodemailer.createTransport({
@@ -65,9 +99,22 @@ exports.handler = async event => {
         <h3>Project Description</h3><p>${value('message').replace(/\r?\n/g, '<br>')}</p>
       </div>`
     });
-    return reply(200, { success: true, message: 'Inquiry sent successfully!' });
   } catch (error) {
     console.error('Failed to send inquiry:', error);
-    return reply(500, { success: false, error: 'Failed to send inquiry. Please try again later.' });
+    return acknowledgeSaved();
   }
+
+  inquiry.emailStatus = 'sent';
+  try {
+    await store.setJSON(key, inquiry);
+  } catch (error) {
+    console.error('Inquiry was emailed, but its status could not be updated:', error);
+    return reply(202, {
+      success: true,
+      message: 'Inquiry received, but the email status could not be updated.',
+      emailSent: true
+    });
+  }
+
+  return reply(200, { success: true, message: 'Inquiry sent successfully!' });
 };

@@ -34,3 +34,9 @@ Netlify site settings, then redeploy:
 
 The Gmail app password must remain an environment variable and must not be
 committed to `backend/data/mail.json`.
+
+Inquiry submissions are saved locally in `state/mail.json` when running the
+Node.js backend. On Netlify, submissions are stored durably in Netlify Blobs
+(the deployed function cannot write back to repository JSON files). The
+`backend/data/mail.json` file contains mail configuration and templates, not
+inquiry submissions.
