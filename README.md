@@ -21,3 +21,16 @@ Open `http://localhost:3000`. The server serves the root `index.html` and the
 single Node.js web service. The project cards currently use the demo content in `frontend/js/script.js`; the
 optional portfolio API integration can be enabled by setting
 `window.PORTFOLIO_API_BASE` to the URL of an API that provides `/api/projects`.
+
+## Netlify inquiry form
+
+Netlify cannot run `backend/server.js` directly, so this repository includes a
+Netlify Function at `/api/inquiry`. Set these environment variables in the
+Netlify site settings, then redeploy:
+
+- `GMAIL_USER`
+- `GMAIL_APP_PASSWORD`
+- `RECEIVER_EMAIL` (optional; defaults to `GMAIL_USER`)
+
+The Gmail app password must remain an environment variable and must not be
+committed to `backend/data/mail.json`.

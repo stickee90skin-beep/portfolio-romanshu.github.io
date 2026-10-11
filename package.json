@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "dependencies": {
+    "nodemailer": "^10.0.16"
+  }
+}
